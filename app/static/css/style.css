@@ -1,0 +1,71 @@
+/* ============================================================
+   POS System - stylesheet
+   (Tailwind via CDN handles most utility classes; this file only
+   covers things Tailwind can't: active tab state, scrollbars,
+   the camera scanner overlay, and printable-receipt rules.)
+   ============================================================ */
+
+.tab-btn.active {
+  background: #059669;
+  color: #fff;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+/* ---- Camera barcode scanner ------------------------------------------- */
+#scanner-modal #scanner-video-box {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #000;
+}
+#scanner-reader {
+  width: 100%;
+}
+#scanner-reader video {
+  width: 100% !important;
+  border-radius: 0.75rem;
+}
+.scanner-frame {
+  pointer-events: none;
+  position: absolute;
+  inset: 15% 15%;
+  border: 3px solid #10b981;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35);
+}
+#scanner-status {
+  min-height: 1.25rem;
+}
+
+/* ---- Printable receipt -------------------------------------------------
+   The receipt is rendered off-screen at all times. When the user prints,
+   @media print hides the rest of the app and shows only the receipt,
+   sized to a narrow 80mm thermal-style slip. */
+#receipt-print-area {
+  font-family: "Courier New", Courier, monospace;
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #receipt-print-area, #receipt-print-area * { visibility: visible; }
+  #receipt-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 80mm;
+    padding: 4mm;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  #receipt-modal, .no-print { display: none !important; }
+}
+
+.receipt-divider {
+  border-top: 1px dashed #999;
+  margin: 6px 0;
+}

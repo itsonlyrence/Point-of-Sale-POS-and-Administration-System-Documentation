@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POS System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="css/style.css">
+<!-- Camera barcode scanner library (optional - only used if "Scan with Camera" is clicked) -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+<!-- ==================== LOGIN ==================== -->
+<div id="login-section" class="flex items-center justify-center min-h-screen bg-emerald-700">
+  <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+    <div class="text-center mb-6">
+      <i class="fa-solid fa-cash-register text-5xl text-emerald-600 mb-2"></i>
+      <h1 class="text-2xl font-bold text-gray-900 system-name-label">POS System</h1>
+      <p class="text-sm text-gray-500">Please sign in to continue</p>
+    </div>
+    <form id="login-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Username</label>
+        <input type="text" id="username" required class="mt-1 block w-full px-4 py-2 border rounded-lg">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Password</label>
+        <input type="password" id="password" required class="mt-1 block w-full px-4 py-2 border rounded-lg">
+      </div>
+      <p id="login-error" class="text-sm text-red-600 hidden"></p>
+      <div class="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+        <p><strong>Default accounts (change after install):</strong></p>
+        <p>Admin: <code>admin</code> / <code>admin123</code></p>
+        <p>Cashier: <code>cashier</code> / <code>cashier123</code></p>
+      </div>
+      <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition font-semibold">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== CASHIER UI ==================== -->
+<div id="cashier-ui" class="hidden min-h-screen flex flex-col">
+  <header class="bg-emerald-700 text-white px-6 py-4 flex justify-between items-center shadow">
+    <div class="flex items-center space-x-3">
+      <i class="fa-solid fa-store text-2xl"></i>
+      <span class="text-xl font-bold system-name-label">POS System</span>
+    </div>
+    <div class="flex items-center space-x-4">
+      <span id="cashier-name" class="text-sm bg-emerald-800 px-3 py-1 rounded-full"></span>
+      <button onclick="logout()" class="bg-red-500 px-3 py-1 rounded text-sm hover:bg-red-600 transition"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </header>
+  <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+    <div class="lg:col-span-2 flex flex-col space-y-6">
+      <div class="bg-white p-4 rounded-xl shadow">
+        <label class="block text-sm font-semibold mb-2 text-gray-700"><i class="fa-solid fa-barcode text-emerald-600"></i> Barcode Scanner Input</label>
+        <div class="flex space-x-2">
+          <input type="text" id="barcode-input" placeholder="Scan or type barcode..." autofocus class="flex-1 px-4 py-2 border rounded-lg">
+          <button onclick="processBarcodeSearch()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition">Add</button>
+          <button onclick="openScanner()" title="Scan using your webcam" class="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition"><i class="fa-solid fa-camera"></i></button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">A USB/handheld scanner works automatically (just scan - it types the code and presses Enter for you). No scanner? Click the camera icon to use your webcam.</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow flex-1 flex flex-col">
+        <h3 class="text-sm font-semibold mb-3 text-gray-700"><i class="fa-solid fa-box-open text-emerald-600"></i> Quick Select Products</h3>
+        <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-y-auto max-h-[450px] p-1"></div>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow flex flex-col justify-between">
+      <div>
+        <h2 class="text-lg font-bold border-b pb-3 mb-4 text-gray-800"><i class="fa-solid fa-cart-shopping text-emerald-600"></i> Current Order</h2>
+        <div id="cart-items" class="space-y-3 overflow-y-auto max-h-[300px] pr-1"><p class="text-gray-400 text-center py-8">Cart is empty</p></div>
+      </div>
+      <div class="border-t pt-4 mt-4 space-y-2">
+        <div class="flex justify-between text-sm"><span>Subtotal</span><span id="cart-subtotal">₱0.00</span></div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Discount (₱)</label>
+          <input type="number" id="cart-discount" value="0" min="0" class="w-full px-3 py-1.5 border rounded-lg text-sm" oninput="renderCart()">
+        </div>
+        <div class="flex justify-between text-lg font-bold text-gray-900"><span>Total Amount</span><span id="cart-total" class="text-emerald-600">₱0.00</span></div>
+        <div class="pt-2">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Cash Tendered (₱)</label>
+          <input type="number" id="cash-tendered" placeholder="0.00" class="w-full px-3 py-2 border rounded-lg text-lg font-bold" oninput="calculateChange()">
+        </div>
+        <div class="flex justify-between text-sm font-semibold bg-gray-50 p-2 rounded"><span>Change:</span><span id="cart-change" class="text-blue-600">₱0.00</span></div>
+        <button onclick="checkout()" class="w-full bg-emerald-600 text-white py-3 rounded-lg hover:bg-emerald-700 transition font-bold text-lg mt-2 shadow">Complete Payment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ADMIN UI ==================== -->
+<div id="admin-ui" class="hidden min-h-screen flex flex-col">
+  <header class="bg-gray-900 text-white px-6 py-4 flex justify-between items-center shadow">
+    <div class="flex items-center space-x-3">
+      <i class="fa-solid fa-user-shield text-2xl text-emerald-400"></i>
+      <span class="text-xl font-bold"><span class="system-name-label">POS System</span> - Admin</span>
+    </div>
+    <button onclick="logout()" class="bg-red-500 px-3 py-1 rounded text-sm hover:bg-red-600 transition"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+  </header>
+
+  <div class="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-6">
+      <div class="bg-white p-6 rounded-xl shadow border-l-4 border-emerald-500">
+        <p class="text-sm text-gray-500 font-semibold">Revenue (Today)</p>
+        <h3 id="admin-revenue" class="text-2xl font-bold text-gray-800 mt-1">₱0.00</h3>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow border-l-4 border-blue-500">
+        <p class="text-sm text-gray-500 font-semibold">Transactions</p>
+        <h3 id="admin-tx" class="text-2xl font-bold text-gray-800 mt-1">0</h3>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow border-l-4 border-purple-500">
+        <p class="text-sm text-gray-500 font-semibold">Items Sold</p>
+        <h3 id="admin-items-sold" class="text-2xl font-bold text-gray-800 mt-1">0</h3>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow border-l-4 border-amber-500">
+        <p class="text-sm text-gray-500 font-semibold">Low Stock Alerts</p>
+        <h3 id="admin-low-stock" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="inventory" onclick="switchTab('inventory')"><i class="fa-solid fa-boxes-stacked"></i> Inventory</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="catalog" onclick="switchTab('catalog')"><i class="fa-solid fa-tags"></i> Categories & Suppliers</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="users" onclick="switchTab('users')"><i class="fa-solid fa-users"></i> Users</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="sales" onclick="switchTab('sales')"><i class="fa-solid fa-receipt"></i> Sales / Void</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="reports" onclick="switchTab('reports')"><i class="fa-solid fa-chart-line"></i> Reports</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="audit" onclick="switchTab('audit')"><i class="fa-solid fa-clock-rotate-left"></i> Audit Log</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="backup" onclick="switchTab('backup')"><i class="fa-solid fa-database"></i> Backup</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-white shadow" data-tab="settings" onclick="switchTab('settings')"><i class="fa-solid fa-gear"></i> Settings</button>
+    </div>
+
+    <!-- Inventory tab -->
+    <div id="tab-inventory" class="tab-panel space-y-4">
+      <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+          <h3 class="text-lg font-bold text-gray-800">Inventory Management</h3>
+          <div class="flex gap-2">
+            <label class="text-xs flex items-center gap-1"><input type="checkbox" id="show-archived" onchange="loadProducts()"> Show archived</label>
+            <button onclick="openAddProductModal()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 transition"><i class="fa-solid fa-plus"></i> Add Product</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead><tr class="bg-gray-50 border-b text-gray-600">
+              <th class="p-3">Barcode</th><th class="p-3">Name</th><th class="p-3">Category</th>
+              <th class="p-3">Price</th><th class="p-3">Cost</th><th class="p-3">Stock</th><th class="p-3">Reorder At</th><th class="p-3">Action</th>
+            </tr></thead>
+            <tbody id="inventory-table-body" class="divide-y"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Categories & suppliers tab -->
+    <div id="tab-catalog" class="tab-panel hidden space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="text-lg font-bold text-gray-800 mb-3">Categories</h3>
+          <form id="category-form" class="flex gap-2 mb-3">
+            <input id="new-category" required placeholder="New category name" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+            <button class="bg-emerald-600 text-white px-4 rounded-lg text-sm">Add</button>
+          </form>
+          <ul id="category-list" class="text-sm divide-y"></ul>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="text-lg font-bold text-gray-800 mb-3">Suppliers</h3>
+          <form id="supplier-form" class="flex gap-2 mb-3">
+            <input id="new-supplier-name" required placeholder="Supplier name" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+            <input id="new-supplier-contact" placeholder="Contact" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+            <button class="bg-emerald-600 text-white px-4 rounded-lg text-sm">Add</button>
+          </form>
+          <ul id="supplier-list" class="text-sm divide-y"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users tab -->
+    <div id="tab-users" class="tab-panel hidden space-y-4">
+      <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-800">Staff Accounts</h3>
+          <button onclick="openAddUserModal()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 transition"><i class="fa-solid fa-user-plus"></i> Add User</button>
+        </div>
+        <table class="w-full text-left text-sm border-collapse">
+          <thead><tr class="bg-gray-50 border-b text-gray-600"><th class="p-3">Username</th><th class="p-3">Full Name</th><th class="p-3">Role</th><th class="p-3">Status</th><th class="p-3">Action</th></tr></thead>
+          <tbody id="users-table-body" class="divide-y"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sales / Void tab -->
+    <div id="tab-sales" class="tab-panel hidden space-y-4">
+      <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-800">Recent Sales</h3>
+          <select id="sales-range" onchange="loadSales()" class="border rounded-lg text-sm px-2 py-1">
+            <option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option><option value="all">All</option>
+          </select>
+        </div>
+        <table class="w-full text-left text-sm border-collapse">
+          <thead><tr class="bg-gray-50 border-b text-gray-600"><th class="p-3">Receipt #</th><th class="p-3">Date</th><th class="p-3">Cashier</th><th class="p-3">Total</th><th class="p-3">Status</th><th class="p-3">Action</th></tr></thead>
+          <tbody id="sales-table-body" class="divide-y"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Reports tab -->
+    <div id="tab-reports" class="tab-panel hidden space-y-4">
+      <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+          <h3 class="text-lg font-bold text-gray-800">Sales Reports</h3>
+          <div class="flex gap-2 items-center">
+            <select id="report-range" onchange="loadReports()" class="border rounded-lg text-sm px-2 py-1">
+              <option value="today">Today</option><option value="week">Last 7 days</option><option value="month" selected>Last 30 days</option><option value="all">All time</option>
+            </select>
+            <button onclick="exportCsv()" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 class="font-semibold text-sm text-gray-700 mb-2">Top Products</h4>
+            <table class="w-full text-sm"><thead><tr class="text-gray-500 border-b"><th class="p-2 text-left">Product</th><th class="p-2">Qty</th><th class="p-2">Revenue</th></tr></thead><tbody id="top-products-body"></tbody></table>
+          </div>
+          <div>
+            <h4 class="font-semibold text-sm text-gray-700 mb-2">By Cashier</h4>
+            <table class="w-full text-sm"><thead><tr class="text-gray-500 border-b"><th class="p-2 text-left">Cashier</th><th class="p-2">Tx</th><th class="p-2">Revenue</th></tr></thead><tbody id="by-cashier-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit tab -->
+    <div id="tab-audit" class="tab-panel hidden space-y-4">
+      <div class="bg-white p-6 rounded-xl shadow">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">Admin Audit Log</h3>
+        <table class="w-full text-left text-sm border-collapse">
+          <thead><tr class="bg-gray-50 border-b text-gray-600"><th class="p-3">Time</th><th class="p-3">User</th><th class="p-3">Action</th><th class="p-3">Details</th></tr></thead>
+          <tbody id="audit-table-body" class="divide-y"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Backup tab -->
+    <div id="tab-backup" class="tab-panel hidden space-y-4">
+      <div class="bg-white p-6 rounded-xl shadow max-w-lg">
+        <h3 class="text-lg font-bold text-gray-800 mb-2">Database Backup</h3>
+        <p class="text-sm text-gray-500 mb-4">Downloads a full copy of the SQL database file (data/pos.db). Keep copies somewhere safe (USB drive, cloud folder).</p>
+        <button onclick="downloadBackup()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-download"></i> Download Backup Now</button>
+      </div>
+    </div>
+
+    <!-- Settings tab: change system name + receipt details -->
+    <div id="tab-settings" class="tab-panel hidden space-y-4">
+      <div class="bg-white p-6 rounded-xl shadow max-w-lg">
+        <h3 class="text-lg font-bold text-gray-800 mb-1">System Settings</h3>
+        <p class="text-sm text-gray-500 mb-4">Rename the system and set the details printed on every receipt. Default system name is <strong>POS System</strong>.</p>
+        <form id="settings-form" class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">System Name</label>
+            <input id="settings-system-name" required class="mt-1 block w-full px-3 py-2 border rounded-lg" placeholder="POS System">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Store Address <span class="text-gray-400 font-normal">(optional, shown on receipts)</span></label>
+            <input id="settings-store-address" class="mt-1 block w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Store Contact # <span class="text-gray-400 font-normal">(optional)</span></label>
+            <input id="settings-store-contact" class="mt-1 block w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Receipt Footer Message</label>
+            <input id="settings-receipt-footer" class="mt-1 block w-full px-3 py-2 border rounded-lg" placeholder="Thank you for shopping with us!">
+          </div>
+          <div class="flex items-center gap-3 pt-2">
+            <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold">Save Settings</button>
+            <span id="settings-status" class="text-sm"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Product Modal -->
+<div id="product-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+    <h3 class="text-lg font-bold mb-4 text-gray-800">Add / Edit Product</h3>
+    <form id="product-form" class="space-y-3">
+      <input type="hidden" id="edit-product-id">
+      <div><label class="block text-sm font-medium text-gray-700">Barcode</label><input id="new-barcode" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <div><label class="block text-sm font-medium text-gray-700">Product Name</label><input id="new-name" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <div><label class="block text-sm font-medium text-gray-700">Category</label><select id="new-category-select" class="mt-1 block w-full px-3 py-2 border rounded-lg"><option value="">(none)</option></select></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-sm font-medium text-gray-700">Price (₱)</label><input type="number" step="0.01" id="new-price" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+        <div><label class="block text-sm font-medium text-gray-700">Cost (₱)</label><input type="number" step="0.01" id="new-cost" class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-sm font-medium text-gray-700">Initial Stock</label><input type="number" id="new-stock" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+        <div><label class="block text-sm font-medium text-gray-700">Reorder Level</label><input type="number" id="new-reorder" value="10" class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button type="button" onclick="closeAddProductModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Adjust stock modal -->
+<div id="stock-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+    <h3 class="text-lg font-bold mb-4 text-gray-800">Adjust Stock</h3>
+    <form id="stock-form" class="space-y-3">
+      <input type="hidden" id="adjust-product-id">
+      <div><label class="block text-sm font-medium text-gray-700">Change (+add / -remove)</label><input type="number" id="adjust-qty" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <div><label class="block text-sm font-medium text-gray-700">Reason</label><input id="adjust-reason" placeholder="e.g. delivery, spoilage, recount" class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button type="button" onclick="closeStockModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm">Apply</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add user modal -->
+<div id="user-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+    <h3 class="text-lg font-bold mb-4 text-gray-800">Add Staff Account</h3>
+    <form id="user-form" class="space-y-3">
+      <div><label class="block text-sm font-medium text-gray-700">Username</label><input id="new-user-username" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <div><label class="block text-sm font-medium text-gray-700">Full Name</label><input id="new-user-fullname" class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <div><label class="block text-sm font-medium text-gray-700">Password</label><input type="password" id="new-user-password" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <div><label class="block text-sm font-medium text-gray-700">Role</label>
+        <select id="new-user-role" class="mt-1 block w-full px-3 py-2 border rounded-lg"><option value="cashier">Cashier</option><option value="admin">Admin</option></select>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button type="button" onclick="closeAddUserModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Void sale modal -->
+<div id="void-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+    <h3 class="text-lg font-bold mb-4 text-gray-800">Void Sale</h3>
+    <form id="void-form" class="space-y-3">
+      <input type="hidden" id="void-sale-id">
+      <div><label class="block text-sm font-medium text-gray-700">Reason</label><input id="void-reason" required class="mt-1 block w-full px-3 py-2 border rounded-lg"></div>
+      <p class="text-xs text-gray-500">Stock for all items in this sale will be returned to inventory.</p>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button type="button" onclick="closeVoidModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">Void Sale</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Camera barcode scanner modal -->
+<div id="scanner-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-camera text-emerald-600"></i> Scan Barcode</h3>
+      <button onclick="closeScanner()" class="text-gray-400 hover:text-gray-700"><i class="fa-solid fa-xmark text-xl"></i></button>
+    </div>
+    <div id="scanner-video-box">
+      <div id="scanner-reader"></div>
+      <div class="scanner-frame"></div>
+    </div>
+    <p id="scanner-status" class="text-sm text-gray-500 text-center mt-2"></p>
+    <button onclick="closeScanner()" class="w-full mt-3 px-4 py-2 bg-gray-200 rounded-lg text-sm">Cancel</button>
+  </div>
+</div>
+
+<!-- Receipt preview / print modal -->
+<div id="receipt-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+    <h3 class="text-lg font-bold mb-3 text-gray-800 text-center"><i class="fa-solid fa-receipt text-emerald-600"></i> Receipt</h3>
+    <div class="border rounded-lg p-3 max-h-[50vh] overflow-y-auto bg-gray-50">
+      <div id="receipt-preview-body" class="text-sm"></div>
+    </div>
+    <div class="flex justify-end gap-2 pt-4">
+      <button onclick="closeReceiptModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Close</button>
+      <button onclick="printReceipt()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden, always-present printable receipt (only this is visible in @media print) -->
+<div id="receipt-print-area"></div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/scanner.js"></script>
+<script src="js/receipt.js"></script>
+<script src="js/cashier.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
